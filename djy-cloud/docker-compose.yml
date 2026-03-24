@@ -1,0 +1,50 @@
+# ============================================================
+# 已迁移至 docker/docker-compose.yml
+# 请使用：cd docker && docker-compose up -d
+# ============================================================
+#
+# 此文件保留仅作兼容，实际编排文件在 docker/ 目录下。
+# 包含初始化 SQL：docker/init/01-schema.sql
+
+version: '3.8'
+
+services:
+
+  nacos:
+    image: nacos/nacos-server:v2.3.1
+    container_name: djy-nacos
+    environment:
+      - MODE=standalone
+      - JVM_XMS=256m
+      - JVM_XMX=512m
+    ports:
+      - "8848:8848"
+      - "9848:9848"
+      - "9849:9849"
+    volumes:
+      - nacos_data:/home/nacos/data
+      - nacos_logs:/home/nacos/logs
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16
+    container_name: djy-postgres
+    environment:
+      POSTGRES_DB: djy
+      POSTGRES_USER: djy
+      POSTGRES_PASSWORD: djy123456
+      TZ: Asia/Shanghai
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./docker/init:/docker-entrypoint-initdb.d
+    restart: unless-stopped
+
+volumes:
+  nacos_data:
+    driver: local
+  nacos_logs:
+    driver: local
+  pg_data:
+    driver: local

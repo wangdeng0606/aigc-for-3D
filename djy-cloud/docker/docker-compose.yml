@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+
+  # ==================== Nacos 服务发现 + 配置中心 ====================
+  nacos:
+    image: nacos/nacos-server:v2.2.3
+    container_name: djy-nacos
+    environment:
+      - MODE=standalone
+      - JVM_XMS=256m
+      - JVM_XMX=512m
+    ports:
+      - "8848:8848"   # HTTP API + 控制台
+      - "9848:9848"   # gRPC（客户端长连接）
+      - "9849:9849"   # gRPC（集群间通信）
+    volumes:
+      - nacos_data:/home/nacos/data
+      - nacos_logs:/home/nacos/logs
+    restart: unless-stopped
+
+  # ==================== PostgreSQL 数据库 ====================
+  postgres:
+    image: postgres:15
+    container_name: djy-postgres
+    environment:
+      POSTGRES_DB: djy
+      POSTGRES_USER: djy
+      POSTGRES_PASSWORD: djy123456
+      TZ: Asia/Shanghai
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./init:/docker-entrypoint-initdb.d   # 自动执行初始化 SQL
+    restart: unless-stopped
+
+volumes:
+  nacos_data:
+    driver: local
+  nacos_logs:
+    driver: local
+  pg_data:
+    driver: local

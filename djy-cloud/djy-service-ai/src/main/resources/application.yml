@@ -1,0 +1,26 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: djy-service-ai
+  servlet:
+    multipart:
+      max-file-size: 20MB
+      max-request-size: 20MB
+  cloud:
+    nacos:
+      discovery:
+        server-addr: 127.0.0.1:8848
+        enabled: false
+
+# 阿里云百炼 DashScope 统一配置
+dashscope:
+  api-key: sk-fe2170d938574793811f7dbd211157b6
+  chat-model: qwen-vl-plus
+  image-model: wanx-v1
+  image-edit-model: qwen-image-edit-plus
+  video-model: wan2.6-t2v
+  temperature: 0.1
+  top-p: 0.9
+ 

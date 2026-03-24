@@ -1,0 +1,37 @@
+FRONT VIEW — IDENTITY ANCHOR (FROM DESCRIPTION)
+
+Generate ONE character based on structured attributes.
+
+CHARACTER:
+- Gender: {gender}
+- Style: {style}
+- Hair: {hair}
+- Outfit: {outfit}
+- Body: {body}
+- Vibe: {vibe}
+
+- Full-body, facing forward
+- Neutral, strong standing pose
+
+IDENTITY LOCK:
+- Create a unique, realistic face
+- Must remain consistent across future views
+
+CANVAS LAYOUT (STRICT):
+- Output: square 1:1 image
+- Character centered horizontally
+- Head top at ~3% from top edge
+- Feet at ~88% from top edge
+- Character occupies 85% of image height
+- Head (crown to chin) occupies 12-15% of total image height
+- Leave equal margin left and right
+- Neutral background (white/gray), no ground shadow
+
+- Photorealistic, DSLR, 50mm, soft lighting
+
+NO:
+- multiple characters, text, watermark
+- pose variation, blur, stylization
+- cropped limbs, off-center placement
+
+Goal: generate a stable identity anchor for multi-view generation with predictable head position

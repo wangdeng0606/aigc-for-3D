@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D室内场景编辑器</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+        }
+        #canvas-container {
+            width: 100vw;
+            height: 100vh;
+        }
+        #info {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 15px;
+            border-radius: 5px;
+            font-size: 14px;
+            z-index: 100;
+            max-width: 300px;
+        }
+        #controls {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 15px;
+            border-radius: 5px;
+            z-index: 100;
+            color: white;
+        }
+        #controls button {
+            display: block;
+            width: 100%;
+            margin: 5px 0;
+            padding: 10px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        #controls button:hover {
+            background: #45a049;
+        }
+        #editor-panel {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.9);
+            padding: 15px;
+            border-radius: 5px;
+            z-index: 100;
+            color: white;
+            display: none;
+            min-width: 300px;
+        }
+        #editor-panel input {
+            width: 100%;
+            padding: 5px;
+            margin: 5px 0;
+            box-sizing: border-box;
+        }
+        #editor-panel label {
+            display: block;
+            margin-top: 10px;
+            font-weight: bold;
+        }
+        .color-legend {
+            margin-top: 10px;
+            font-size: 12px;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+<body>
+    <div id="info">
+        <div><strong>3D卧室场景编辑器</strong></div>
+        <div style="margin-top: 10px;">视角已锁定</div>
+        <div style="margin-top: 10px;">
+            <strong>操作说明：</strong><br>
+            • 点击物体选中<br>
+            • 拖动物体移动位置<br>
+            • 右侧面板编辑属性
+        </div>
+        <div class="color-legend">
+            <strong>颜色说明：</strong><br>
+            🟤 木质家具<br>
+            ⚫ 黑色办公椅<br>
+            🟡 米色双人床<br>
+            ⬜ 灰白色墙面<br>
+            🟫 棕色地面
+        </div>
+    </div>
+
+    <div id="controls">
+        <button onclick="exportJSON()">导出JSON</button>
+        <button onclick="setMode('translate')" id="btn-translate" style="background: #4CAF50;">移动模式 (T)</button>
+        <button onclick="setMode('rotate')" id="btn-rotate">旋转模式 (R)</button>
+        <button onclick="setMode('scale')" id="btn-scale">缩放模式 (S)</button>
+        <button onclick="deselectObject()">取消选择 (ESC)</button>
+    </div>
+
+    <div id="editor-panel">
+        <div><strong>编辑物体</strong></div>
+        <label>名称：</label>
+        <input type="text" id="edit-name" />
+        <label>位置 X：</label>
+        <input type="number" step="0.1" id="edit-x" />
+        <label>位置 Y：</label>
+        <input type="number" step="0.1" id="edit-y" />
+        <label>位置 Z：</label>
+        <input type="number" step="0.1" id="edit-z" />
+        <label>旋转 Y (度)：</label>
+        <input type="number" step="1" id="edit-rotation" />
+        <label>缩放 X：</label>
+        <input type="number" step="0.1" id="edit-scale-x" />
+        <label>缩放 Y：</label>
+        <input type="number" step="0.1" id="edit-scale-y" />
+        <label>缩放 Z：</label>
+        <input type="number" step="0.1" id="edit-scale-z" />
+        <button onclick="applyEdit()" style="margin-top: 10px; background: #2196F3;">应用修改</button>
+        <button onclick="closeEditor()" style="background: #f44336;">关闭</button>
+    </div>
+
+    <div id="canvas-container"></div>
+
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { TransformControls } from 'three/addons/controls/TransformControls.js';
+        import { FontLoader } from 'three/addons/loaders/FontLoader.js';
+        import { TextGeometry } from 'three/addons/geometries/TextGeometry.js';
+
+        // 全局变量
+        let scene, camera, renderer;
+        let transformControls;
+        let selectedObject = null;
+        let allObjects = [];
+        let objectLabels = new Map();
+        let sceneData = null;
+        let currentMode = 'translate'; // translate, rotate, scale
+
+        // 物体颜色映射（支持旧版名称和新版category）
+        const colorMap = {
+            // 旧版名称映射
+            "双人床（原点锚定）": 0xF5F5DC,
+            "左侧床头柜": 0xD2691E,
+            "右侧床头柜": 0xD2691E,
+            "木质书桌（左前景）": 0x8B4513,
+            "黑色办公椅": 0x1a1a1a,
+            "右侧矮柜": 0x8B4513,
+            "后墙（床头背景墙）": 0xE8E8E8,
+            "左侧墙（窗户侧墙）": 0xF0F0F0,
+            "右侧墙": 0xF0F0F0,
+            "地面": 0xD2B48C,
+            
+            // 新版category映射
+            "double_bed": 0xF5F5DC,
+            "nightstand": 0xD2691E,
+            "desk": 0x8B4513,
+            "office_chair": 0x1a1a1a,
+            "low_cabinet": 0x8B4513,
+            "wall": 0xE8E8E8,
+            "floor": 0xD2B48C,
+            
+            // 新版ID映射
+            "bed": 0xF5F5DC,
+            "bedside_left": 0xD2691E,
+            "bedside_right": 0xD2691E,
+            "chair": 0x1a1a1a,
+            "cabinet_right": 0x8B4513,
+            "wall_back": 0xE8E8E8,
+            "wall_left": 0xF0F0F0,
+            "wall_right": 0xF0F0F0
+        };
+
+        // 新版JSON格式转换函数
+        function convertNewFormatToOld(newData) {
+            const converted = {
+                scene_info: {
+                    coordinate_system: {
+                        description: `${newData.meta.coordinate_system}坐标系，单位=${newData.meta.unit}`,
+                        camera_setting: `${newData.camera.type}(${newData.camera.fov}, ${newData.camera.aspect}, ${newData.camera.near}, ${newData.camera.far}), position=(${newData.camera.position.join(', ')}), lookAt(${newData.camera.look_at.join(', ')})`
+                    },
+                    scene_type: newData.meta.scene_name
+                },
+                objects: []
+            };
+
+            newData.objects.forEach(obj => {
+                const transform = obj.transform;
+                const size = obj.size;
+                
+                // 计算bounding_box_3d（程序自动计算）
+                const halfWidth = (size[0] * transform.scale[0]) / 2;
+                const halfHeight = (size[1] * transform.scale[1]) / 2;
+                const halfDepth = (size[2] * transform.scale[2]) / 2;
+                
+                const pos = transform.position;
+                
+                converted.objects.push({
+                    object_name: obj.id,
+                    category: obj.category,
+                    type: obj.type,
+                    threejs_position: pos,
+                    rotation_y: transform.rotation[1], // 只取Y轴旋转
+                    scale: transform.scale,
+                    bounding_box_3d: [
+                        [
+                            pos[0] - halfWidth,
+                            pos[1] - halfHeight,
+                            pos[2] - halfDepth
+                        ],
+                        [
+                            pos[0] + halfWidth,
+                            pos[1] + halfHeight,
+                            pos[2] + halfDepth
+                        ]
+                    ],
+                    // 程序计算的额外字段
+                    area: `${((size[0] * size[2]) / 84 * 100).toFixed(0)}%`, // 假设房间面积14*6=84
+                    depth_level: obj.type === 'structure' ? '背景' : '中景'
+                });
+            });
+
+            return converted;
+        }
+
+        // 加载JSON数据 - 自动检测格式
+        try {
+            const response = await fetch('./3d-room-new.json');
+            const rawData = await response.json();
+            
+            // 检测是新格式还是旧格式
+            if (rawData.meta && rawData.camera) {
+                console.log('检测到新版JSON格式，正在转换...');
+                sceneData = convertNewFormatToOld(rawData);
+                console.log('转换后的数据:', sceneData);
+            } else {
+                console.log('检测到旧版JSON格式，直接使用');
+                sceneData = rawData;
+            }
+        } catch (error) {
+            console.error('加载JSON失败:', error);
+            alert('无法加载JSON文件，请确保文件存在');
+        }
+
+        if (!sceneData) {
+            throw new Error('场景数据加载失败');
+        }
+
+        // 初始化场景
+        scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x87CEEB);
+
+        // 相机设置 - 按照JSON配置：俯视30度看向床中心
+        camera = new THREE.PerspectiveCamera(
+            60,
+            16 / 9,
+            0.1,
+            50
+        );
+        camera.position.set(0, 8, -12);
+        camera.lookAt(0, 0, 0);
+
+        // 渲染器
+        renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+        // 禁用轨道控制器 - 锁死视角
+        // const controls = new OrbitControls(camera, renderer.domElement);
+        // controls.enabled = false;
+
+        // 添加TransformControls
+        transformControls = new TransformControls(camera, renderer.domElement);
+        transformControls.addEventListener('dragging-changed', function(event) {
+            // 拖动时禁用其他交互
+        });
+        transformControls.addEventListener('change', function() {
+            if (selectedObject) {
+                updateEditorValues();
+                // 更新标签位置
+                const label = objectLabels.get(selectedObject);
+                if (label) {
+                    label.position.set(
+                        selectedObject.position.x,
+                        selectedObject.position.y + 1.2,
+                        selectedObject.position.z
+                    );
+                }
+            }
+        });
+        scene.add(transformControls);
+
+        // 添加光源
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+        scene.add(ambientLight);
+
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.6);
+        directionalLight.position.set(5, 10, -5);
+        directionalLight.castShadow = true;
+        scene.add(directionalLight);
+
+        // 添加坐标轴辅助线
+        const axesHelper = new THREE.AxesHelper(5);
+        scene.add(axesHelper);
+
+        // 创建物体 - 兼容新旧JSON格式
+        function createObject(objData) {
+            const bbox = objData.bounding_box_3d;
+            const min = bbox[0];
+            const max = bbox[1];
+            
+            // 计算原始尺寸（未缩放前）
+            const width = Math.abs(max[0] - min[0]);
+            const height = Math.abs(max[1] - min[1]);
+            const depth = Math.abs(max[2] - min[2]);
+            
+            // 获取缩放值
+            const scale = objData.scale || [1, 1, 1];
+            
+            // 创建几何体时使用未缩放的尺寸
+            const geometry = new THREE.BoxGeometry(
+                width / scale[0], 
+                height / scale[1], 
+                depth / scale[2]
+            );
+            
+            // 从颜色映射表获取颜色（优先使用category，其次object_name）
+            const colorKey = objData.category || objData.object_name;
+            const color = colorMap[colorKey] || colorMap[objData.object_name] || 0x808080;
+            
+            const material = new THREE.MeshPhongMaterial({
+                color: color,
+                transparent: true,
+                opacity: 0.85,
+                side: THREE.DoubleSide
+            });
+            
+            const mesh = new THREE.Mesh(geometry, material);
+            
+            // 使用threejs_position字段
+            const pos = objData.threejs_position;
+            mesh.position.set(pos[0], pos[1], pos[2]);
+            
+            // 应用旋转（如果有）
+            if (objData.rotation_y !== undefined) {
+                mesh.rotation.y = objData.rotation_y * Math.PI / 180;
+            }
+            
+            // 应用缩放（如果有）
+            if (objData.scale) {
+                mesh.scale.set(scale[0], scale[1], scale[2]);
+            }
+            
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
+            
+            // 添加边框线
+            const edges = new THREE.EdgesGeometry(geometry);
+            const lineMaterial = new THREE.LineBasicMaterial({ 
+                color: 0x000000, 
+                linewidth: 1 
+            });
+            const wireframe = new THREE.LineSegments(edges, lineMaterial);
+            mesh.add(wireframe);
+            
+            // 添加文字标签（保存原始名称和category）
+            mesh.userData.name = objData.object_name;
+            mesh.userData.category = objData.category;
+            mesh.userData.type = objData.type;
+            
+            return mesh;
+        }
+
+        // 创建CSS2D文字标签
+        function createTextLabel(text, position) {
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            
+            // 增加分辨率提高清晰度
+            canvas.width = 1024;
+            canvas.height = 256;
+            
+            // 背景
+            context.fillStyle = 'rgba(0, 0, 0, 0.8)';
+            context.roundRect(0, 0, canvas.width, canvas.height, 20);
+            context.fill();
+            
+            // 文字
+            context.font = 'Bold 64px Microsoft YaHei, Arial, sans-serif';
+            context.fillStyle = 'white';
+            context.textAlign = 'center';
+            context.textBaseline = 'middle';
+            context.fillText(text, canvas.width / 2, canvas.height / 2);
+            
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.minFilter = THREE.LinearFilter;
+            texture.magFilter = THREE.LinearFilter;
+            
+            const spriteMaterial = new THREE.SpriteMaterial({ 
+                map: texture,
+                transparent: true,
+                depthTest: false,
+                depthWrite: false
+            });
+            const sprite = new THREE.Sprite(spriteMaterial);
+            
+            // 标签位置在物体上方
+            sprite.position.set(position[0], position[1] + 1.2, position[2]);
+            sprite.scale.set(2.5, 0.625, 1);
+            
+            return sprite;
+        }
+
+        // 添加所有物体到场景
+        sceneData.objects.forEach(objData => {
+            const mesh = createObject(objData);
+            scene.add(mesh);
+            allObjects.push(mesh);
+            
+            // 添加文字标签（除了地面和墙面）
+            if (!objData.object_name.includes('墙') && !objData.object_name.includes('地面')) {
+                const label = createTextLabel(objData.object_name, objData.threejs_position);
+                scene.add(label);
+                objectLabels.set(mesh, label);
+            }
+            
+            console.log(`添加物体: ${objData.object_name}, 位置: ${objData.threejs_position}, 颜色: #${colorMap[objData.object_name].toString(16)}`);
+        });
+
+        // 鼠标点击选择物体
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+
+        renderer.domElement.addEventListener('click', onMouseClick, false);
+
+        function onMouseClick(event) {
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+            
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(allObjects, false);
+            
+            if (intersects.length > 0) {
+                selectObject(intersects[0].object);
+            }
+        }
+
+        function selectObject(obj) {
+            // 恢复之前选中物体的颜色
+            if (selectedObject && selectedObject.userData.originalColor !== undefined) {
+                selectedObject.material.color.setHex(selectedObject.userData.originalColor);
+            }
+            
+            selectedObject = obj;
+            
+            // 高亮选中物体
+            if (selectedObject.userData.originalColor === undefined) {
+                selectedObject.userData.originalColor = selectedObject.material.color.getHex();
+            }
+            selectedObject.material.color.setHex(0xffff00);
+            
+            // 附加TransformControls
+            transformControls.attach(selectedObject);
+            
+            // 显示编辑面板
+            showEditor(selectedObject);
+        }
+
+        // 模式切换
+        window.setMode = function(mode) {
+            currentMode = mode;
+            transformControls.setMode(mode);
+            
+            // 更新按钮样式
+            document.getElementById('btn-translate').style.background = mode === 'translate' ? '#4CAF50' : '#666';
+            document.getElementById('btn-rotate').style.background = mode === 'rotate' ? '#4CAF50' : '#666';
+            document.getElementById('btn-scale').style.background = mode === 'scale' ? '#4CAF50' : '#666';
+        };
+
+        window.deselectObject = function() {
+            if (selectedObject && selectedObject.userData.originalColor !== undefined) {
+                selectedObject.material.color.setHex(selectedObject.userData.originalColor);
+            }
+            selectedObject = null;
+            transformControls.detach();
+            closeEditor();
+        };
+
+        // 键盘快捷键
+        window.addEventListener('keydown', function(event) {
+            switch(event.key.toLowerCase()) {
+                case 't':
+                    setMode('translate');
+                    break;
+                case 'r':
+                    setMode('rotate');
+                    break;
+                case 's':
+                    setMode('scale');
+                    break;
+                case 'escape':
+                    deselectObject();
+                    break;
+            }
+        });
+
+        // 编辑器函数
+        function showEditor(obj) {
+            const panel = document.getElementById('editor-panel');
+            panel.style.display = 'block';
+            
+            document.getElementById('edit-name').value = obj.userData.name;
+            document.getElementById('edit-x').value = obj.position.x.toFixed(2);
+            document.getElementById('edit-y').value = obj.position.y.toFixed(2);
+            document.getElementById('edit-z').value = obj.position.z.toFixed(2);
+            document.getElementById('edit-rotation').value = (obj.rotation.y * 180 / Math.PI).toFixed(0);
+            document.getElementById('edit-scale-x').value = obj.scale.x.toFixed(2);
+            document.getElementById('edit-scale-y').value = obj.scale.y.toFixed(2);
+            document.getElementById('edit-scale-z').value = obj.scale.z.toFixed(2);
+        }
+
+        function updateEditorValues() {
+            if (!selectedObject) return;
+            document.getElementById('edit-x').value = selectedObject.position.x.toFixed(2);
+            document.getElementById('edit-y').value = selectedObject.position.y.toFixed(2);
+            document.getElementById('edit-z').value = selectedObject.position.z.toFixed(2);
+            document.getElementById('edit-rotation').value = (selectedObject.rotation.y * 180 / Math.PI).toFixed(0);
+            document.getElementById('edit-scale-x').value = selectedObject.scale.x.toFixed(2);
+            document.getElementById('edit-scale-y').value = selectedObject.scale.y.toFixed(2);
+            document.getElementById('edit-scale-z').value = selectedObject.scale.z.toFixed(2);
+        }
+
+        window.applyEdit = function() {
+            if (!selectedObject) return;
+            
+            const newName = document.getElementById('edit-name').value;
+            const newX = parseFloat(document.getElementById('edit-x').value);
+            const newY = parseFloat(document.getElementById('edit-y').value);
+            const newZ = parseFloat(document.getElementById('edit-z').value);
+            const newRotation = parseFloat(document.getElementById('edit-rotation').value) * Math.PI / 180;
+            const newScaleX = parseFloat(document.getElementById('edit-scale-x').value);
+            const newScaleY = parseFloat(document.getElementById('edit-scale-y').value);
+            const newScaleZ = parseFloat(document.getElementById('edit-scale-z').value);
+            
+            selectedObject.userData.name = newName;
+            selectedObject.position.set(newX, newY, newZ);
+            selectedObject.rotation.y = newRotation;
+            selectedObject.scale.set(newScaleX, newScaleY, newScaleZ);
+            
+            // 更新标签
+            const label = objectLabels.get(selectedObject);
+            if (label) {
+                label.position.set(newX, newY + 1.2, newZ);
+                
+                // 重新生成标签文字
+                const canvas = document.createElement('canvas');
+                const context = canvas.getContext('2d');
+                canvas.width = 1024;
+                canvas.height = 256;
+                
+                context.fillStyle = 'rgba(0, 0, 0, 0.8)';
+                context.roundRect(0, 0, canvas.width, canvas.height, 20);
+                context.fill();
+                
+                context.font = 'Bold 64px Microsoft YaHei, Arial, sans-serif';
+                context.fillStyle = 'white';
+                context.textAlign = 'center';
+                context.textBaseline = 'middle';
+                context.fillText(newName, canvas.width / 2, canvas.height / 2);
+                
+                label.material.map.image = canvas;
+                label.material.map.needsUpdate = true;
+            }
+            
+            alert('修改已应用');
+        };
+
+        window.closeEditor = function() {
+            document.getElementById('editor-panel').style.display = 'none';
+        };
+
+        window.exportJSON = function() {
+            const exportData = {
+                scene_info: sceneData.scene_info,
+                objects: []
+            };
+            
+            allObjects.forEach(obj => {
+                const bbox = obj.geometry.parameters;
+                const pos = obj.position;
+                const rot = obj.rotation;
+                const scale = obj.scale;
+                
+                // 计算缩放后的边界框
+                const halfWidth = (bbox.width * scale.x) / 2;
+                const halfHeight = (bbox.height * scale.y) / 2;
+                const halfDepth = (bbox.depth * scale.z) / 2;
+                
+                exportData.objects.push({
+                    object_name: obj.userData.name,
+                    threejs_position: [
+                        parseFloat(pos.x.toFixed(2)),
+                        parseFloat(pos.y.toFixed(2)),
+                        parseFloat(pos.z.toFixed(2))
+                    ],
+                    rotation_y: parseFloat((rot.y * 180 / Math.PI).toFixed(1)),
+                    scale: [
+                        parseFloat(scale.x.toFixed(2)),
+                        parseFloat(scale.y.toFixed(2)),
+                        parseFloat(scale.z.toFixed(2))
+                    ],
+                    bounding_box_3d: [
+                        [
+                            parseFloat((pos.x - halfWidth).toFixed(2)),
+                            parseFloat((pos.y - halfHeight).toFixed(2)),
+                            parseFloat((pos.z - halfDepth).toFixed(2))
+                        ],
+                        [
+                            parseFloat((pos.x + halfWidth).toFixed(2)),
+                            parseFloat((pos.y + halfHeight).toFixed(2)),
+                            parseFloat((pos.z + halfDepth).toFixed(2))
+                        ]
+                    ]
+                });
+            });
+            
+            const jsonStr = JSON.stringify(exportData, null, 2);
+            const blob = new Blob([jsonStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = '3d-room-edited.json';
+            a.click();
+            URL.revokeObjectURL(url);
+            
+            console.log('导出的JSON:', jsonStr);
+        };
+
+        window.toggleEditMode = function() {
+            alert('编辑模式已启用，点击物体即可拖动和编辑');
+        };
+
+        // 窗口大小调整
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // 动画循环
+        function animate() {
+            requestAnimationFrame(animate);
+            // controls.update(); // 已禁用控制器
+            renderer.render(scene, camera);
+        }
+
+        animate();
+    </script>
+</body>
+</html>

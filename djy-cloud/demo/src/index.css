@@ -1,0 +1,259 @@
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ===== Design Tokens ===== */
+:root {
+  --color-brand:       #6366f1;
+  --color-brand-light: #818cf8;
+  --color-brand-wash:  #eef2ff;
+  --color-surface:     #ffffff;
+  --color-surface-dim: #f8f9fc;
+  --color-border:      #e2e5ec;
+  --color-border-soft: #eef0f4;
+  --color-text:        #0f172a;
+  --color-text-sub:    #475569;
+  --color-text-muted:  #94a3b8;
+  --color-char:        #f59e0b;
+  --color-char-wash:   #fffbeb;
+  --color-scene:       #059669;
+  --color-scene-wash:  #ecfdf5;
+  --color-video:       #7c3aed;
+  --color-video-wash:  #f5f3ff;
+  --radius-sm:  6px;
+  --radius-md:  10px;
+  --radius-lg:  14px;
+  --radius-xl:  20px;
+  --shadow-sm:  0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md:  0 2px 6px rgba(0,0,0,0.04), 0 6px 20px rgba(0,0,0,0.03);
+  --shadow-lg:  0 4px 12px rgba(0,0,0,0.06), 0 12px 32px rgba(0,0,0,0.04);
+  --shadow-glow-brand: 0 0 0 3px rgba(99,102,241,0.12);
+}
+
+/* ===== Reset ===== */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: 'Inter', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  background: #f3f4f8;
+  color: var(--color-text);
+  letter-spacing: 0.01em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ===== Heading / Brand Font ===== */
+.font-display {
+  font-family: 'Noto Serif SC', 'Georgia', serif;
+  letter-spacing: 0.04em;
+}
+
+/* ===== Accessibility ===== */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+:focus:not(:focus-visible) { outline: none; }
+
+/* ===== React Flow Canvas ===== */
+.react-flow__background {
+  background: linear-gradient(170deg, #f8f9fc 0%, #eef0f6 60%, #e8eaf3 100%) !important;
+}
+.react-flow__minimap {
+  background: var(--color-surface) !important;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border) !important;
+  box-shadow: var(--shadow-md);
+}
+.react-flow__controls {
+  background: var(--color-surface) !important;
+  border: 1px solid var(--color-border) !important;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+}
+.react-flow__controls-button {
+  background: transparent !important;
+  border-bottom: 1px solid var(--color-border-soft) !important;
+  fill: var(--color-text-muted) !important;
+  transition: fill 0.2s, background 0.2s;
+}
+.react-flow__controls-button:hover { background: var(--color-surface-dim) !important; fill: var(--color-text-sub) !important; }
+.react-flow__edge-path { stroke-width: 2; }
+.react-flow__handle {
+  width: 8px; height: 8px;
+  border: 2px solid var(--color-brand);
+  background: var(--color-surface);
+  transition: all 0.2s ease;
+}
+.react-flow__handle:hover { background: var(--color-brand); transform: scale(1.3); }
+.react-flow__connection-line { stroke: var(--color-brand) !important; }
+
+/* ===== Node Base ===== */
+.bp-node {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  min-width: 260px;
+  font-size: 13px;
+  color: var(--color-text);
+  box-shadow: var(--shadow-md);
+  cursor: pointer;
+  transition: border-color 0.25s ease, box-shadow 0.3s ease, transform 0.3s ease;
+}
+.bp-node:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+}
+.bp-node.selected {
+  border-color: var(--color-brand);
+  box-shadow: var(--shadow-glow-brand), var(--shadow-lg);
+}
+
+/* --- Character Node --- */
+.char-node {
+  background: linear-gradient(145deg, #ffffff 0%, #fffcf5 100%);
+  border: 1px solid rgba(245, 158, 11, 0.18);
+  border-left: 3px solid var(--color-char);
+  border-radius: 16px;
+  box-shadow:
+    0 8px 24px rgba(245, 158, 11, 0.06),
+    0 2px 8px rgba(0,0,0,0.03);
+  position: relative;
+}
+.char-node:hover {
+  transform: translateY(-3px);
+  box-shadow:
+    0 12px 32px rgba(245, 158, 11, 0.10),
+    0 4px 12px rgba(0,0,0,0.04);
+}
+.char-node.selected {
+  border-color: var(--color-char);
+  box-shadow:
+    0 0 0 3px rgba(245, 158, 11, 0.12),
+    0 8px 24px rgba(245, 158, 11, 0.10);
+}
+.char-node .corner-dot {
+  position: absolute;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #fbbf24, #f59e0b);
+  box-shadow: 0 1px 3px rgba(245, 158, 11, 0.3);
+  border: 1.5px solid #fff;
+  z-index: 2;
+}
+.char-node .corner-dot.tl { top: -3px; left: -3px; }
+.char-node .corner-dot.tr { top: -3px; right: -3px; }
+.char-node .corner-dot.bl { bottom: -3px; left: -3px; }
+.char-node .corner-dot.br { bottom: -3px; right: -3px; }
+.char-node .react-flow__handle[data-handlepos='right'] {
+  width: 10px; height: 10px;
+  background: linear-gradient(135deg, #f87171, #ef4444);
+  border: 2px solid #fff;
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.35);
+  animation: char-pulse 2.5s infinite ease-in-out;
+}
+@keyframes char-pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.35); }
+  70%  { box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+}
+.char-node .react-flow__handle { border-color: var(--color-char); }
+
+/* --- Scene Node --- */
+.scene-node {
+  border-left: 3px solid var(--color-scene);
+  background: linear-gradient(145deg, #ffffff 0%, #f4fdf9 100%);
+}
+.scene-node .react-flow__handle { border-color: var(--color-scene); }
+.scene-node.selected {
+  border-color: var(--color-scene);
+  box-shadow: 0 0 0 3px rgba(5,150,105,0.10), var(--shadow-lg);
+}
+
+/* --- Video Node --- */
+.video-node {
+  border-left: 3px solid var(--color-video);
+  background: linear-gradient(145deg, #ffffff 0%, #faf8ff 100%);
+}
+.video-node .react-flow__handle { border-color: var(--color-video); }
+.video-node.selected {
+  border-color: var(--color-video);
+  box-shadow: 0 0 0 3px rgba(124,58,237,0.10), var(--shadow-lg);
+}
+
+/* ===== Scrollbar ===== */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+/* ===== Form Controls ===== */
+.input {
+  width: 100%;
+  padding: 9px 12px;
+  background: var(--color-surface-dim);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text);
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+}
+.input:focus {
+  border-color: var(--color-brand);
+  box-shadow: 0 0 0 3px rgba(99,102,241,0.08);
+  background: var(--color-surface);
+}
+.input::placeholder { color: var(--color-text-muted); }
+
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 8px 16px;
+  border-radius: var(--radius-sm);
+  font-size: 13px; font-weight: 500;
+  cursor: pointer; border: none;
+  user-select: none;
+  transition: all 0.2s ease;
+}
+.btn:active { transform: scale(0.97); }
+.btn-primary { background: var(--color-brand); color: white; }
+.btn-primary:hover { background: #4f46e5; box-shadow: 0 4px 14px rgba(99,102,241,0.30); transform: translateY(-1px); }
+.btn-ghost { background: var(--color-surface); color: var(--color-text-sub); border: 1px solid var(--color-border); }
+.btn-ghost:hover { background: var(--color-surface-dim); color: var(--color-text); border-color: #cbd5e1; }
+
+/* ===== Animations ===== */
+.animate-in {
+  animation: modal-in 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes modal-in {
+  from { opacity: 0; transform: scale(0.96) translateY(6px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+/* Slide-in for right panels */
+.slide-in-right {
+  animation: slide-right 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes slide-right {
+  from { opacity: 0; transform: translateX(12px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+/* Fade-up for menus */
+.fade-up {
+  animation: fade-up 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}

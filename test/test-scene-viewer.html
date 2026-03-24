@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D场景JSON测试查看器</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+        }
+        #canvas-container {
+            width: 100vw;
+            height: 100vh;
+        }
+        #info {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 15px;
+            border-radius: 5px;
+            font-size: 14px;
+            z-index: 100;
+            max-width: 300px;
+        }
+        #controls {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 15px;
+            border-radius: 5px;
+            z-index: 100;
+            color: white;
+        }
+        #controls button {
+            display: block;
+            width: 100%;
+            margin: 5px 0;
+            padding: 10px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        #controls button:hover {
+            background: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <div id="info">
+        <div><strong>3D场景测试查看器</strong></div>
+        <div style="margin-top: 10px;">
+            <strong>相机信息：</strong><br>
+            位置: <span id="cam-pos"></span><br>
+            看向: <span id="cam-look"></span><br>
+            FOV: <span id="cam-fov"></span>
+        </div>
+        <div style="margin-top: 10px;">
+            <strong>物体数量：</strong><span id="obj-count"></span>
+        </div>
+    </div>
+
+    <div id="controls">
+        <button onclick="toggleAxes()">显示/隐藏坐标轴</button>
+        <button onclick="toggleLabels()">显示/隐藏标签</button>
+        <button onclick="resetCamera()">重置相机</button>
+        <button onclick="loadJSON()">重新加载JSON</button>
+    </div>
+
+    <div id="canvas-container"></div>
+
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        let scene, camera, renderer, controls;
+        let axesHelper, gridHelper;
+        let objectLabels = [];
+        let sceneData = null;
+        let showAxes = true;
+        let showLabels = true;
+
+        // 颜色映射
+        const categoryColors = {
+            'furniture': 0x8B4513,
+            'decoration': 0x90EE90,
+            'structure': 0xD3D3D3
+        };
+
+        async function init() {
+            // 加载JSON数据
+            try {
+                const response = await fetch('../demo/scene-standard-example.json');
+                sceneData = await response.json();
+                console.log('成功加载JSON:', sceneData);
+            } catch (error) {
+                console.error('加载JSON失败:', error);
+                alert('无法加载scene-standard-example.json文件');
+                return;
+            }
+
+            // 初始化场景
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x87CEEB);
+
+            // 使用JSON中的相机配置
+            camera = new THREE.PerspectiveCamera(
+                sceneData.camera.fov,
+                window.innerWidth / window.innerHeight,
+                0.1,
+                100
+            );
+            camera.position.set(...sceneData.camera.position);
+            camera.lookAt(...sceneData.camera.lookAt);
+
+            // 更新UI
+            document.getElementById('cam-pos').textContent = sceneData.camera.position.join(', ');
+            document.getElementById('cam-look').textContent = sceneData.camera.lookAt.join(', ');
+            document.getElementById('cam-fov').textContent = sceneData.camera.fov;
+            document.getElementById('obj-count').textContent = sceneData.objects.length;
+
+            // 渲染器
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+            // 轨道控制器
+            controls = new OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+
+            // 添加光源
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(10, 10, 10);
+            directionalLight.castShadow = true;
+            scene.add(directionalLight);
+
+            // 添加坐标轴
+            axesHelper = new THREE.AxesHelper(15);
+            scene.add(axesHelper);
+
+            // 添加网格
+            gridHelper = new THREE.GridHelper(40, 40);
+            scene.add(gridHelper);
+
+            // 创建物体
+            createObjects();
+
+            // 窗口大小调整
+            window.addEventListener('resize', onWindowResize);
+
+            // 动画循环
+            animate();
+        }
+
+        function createObjects() {
+            sceneData.objects.forEach(objData => {
+                // 创建几何体
+                const geometry = new THREE.BoxGeometry(
+                    objData.size.width,
+                    objData.size.height,
+                    objData.size.depth || 1
+                );
+
+                // 根据类别选择颜色
+                const color = categoryColors[objData.category] || 0x808080;
+                const material = new THREE.MeshPhongMaterial({
+                    color: color,
+                    transparent: true,
+                    opacity: 0.8
+                });
+
+                const mesh = new THREE.Mesh(geometry, material);
+                mesh.position.set(
+                    objData.position.x,
+                    objData.position.y,
+                    objData.position.z
+                );
+
+                mesh.castShadow = true;
+                mesh.receiveShadow = true;
+
+                // 添加边框
+                const edges = new THREE.EdgesGeometry(geometry);
+                const lineMaterial = new THREE.LineBasicMaterial({ color: 0x000000 });
+                const wireframe = new THREE.LineSegments(edges, lineMaterial);
+                mesh.add(wireframe);
+
+                scene.add(mesh);
+
+                // 创建文字标签
+                const label = createTextLabel(objData.name, objData.position);
+                scene.add(label);
+                objectLabels.push(label);
+
+                console.log(`添加物体: ${objData.name}, 位置: [${objData.position.x}, ${objData.position.y}, ${objData.position.z}], 层级: ${objData.depth_layer}`);
+            });
+        }
+
+        function createTextLabel(text, position) {
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            
+            canvas.width = 512;
+            canvas.height = 128;
+            
+            // 背景
+            context.fillStyle = 'rgba(0, 0, 0, 0.7)';
+            context.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // 文字
+            context.font = 'Bold 32px Arial';
+            context.fillStyle = 'white';
+            context.textAlign = 'center';
+            context.textBaseline = 'middle';
+            context.fillText(text, canvas.width / 2, canvas.height / 2);
+            
+            const texture = new THREE.CanvasTexture(canvas);
+            const spriteMaterial = new THREE.SpriteMaterial({ 
+                map: texture,
+                transparent: true
+            });
+            const sprite = new THREE.Sprite(spriteMaterial);
+            
+            sprite.position.set(position.x, position.y + 2, position.z);
+            sprite.scale.set(4, 1, 1);
+            
+            return sprite;
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        window.toggleAxes = function() {
+            showAxes = !showAxes;
+            axesHelper.visible = showAxes;
+            gridHelper.visible = showAxes;
+        };
+
+        window.toggleLabels = function() {
+            showLabels = !showLabels;
+            objectLabels.forEach(label => {
+                label.visible = showLabels;
+            });
+        };
+
+        window.resetCamera = function() {
+            camera.position.set(...sceneData.camera.position);
+            camera.lookAt(...sceneData.camera.lookAt);
+            controls.target.set(...sceneData.camera.lookAt);
+            controls.update();
+        };
+
+        window.loadJSON = function() {
+            location.reload();
+        };
+
+        init();
+    </script>
+</body>
+</html>

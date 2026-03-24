@@ -1,0 +1,28 @@
+FRONT VIEW — IDENTITY ANCHOR (FROM IMAGE)
+
+Using the provided reference image, generate a full-body version of the SAME character.
+
+- Keep exact identity: face, hair, proportions MUST match
+- No redesign, no reinterpretation
+
+- Complete missing body parts if needed (from portrait to full-body)
+- Maintain realistic anatomy and proportions
+
+CANVAS LAYOUT (STRICT):
+- Output: square 1:1 image
+- Character centered horizontally
+- Head top at ~3% from top edge
+- Feet at ~88% from top edge
+- Character occupies 85% of image height
+- Head (crown to chin) occupies 12-15% of total image height
+- Leave equal margin left and right
+- Neutral background (white/gray), no ground shadow
+
+- Photorealistic, DSLR, 50mm, soft consistent lighting
+
+NO:
+- identity change, new features, extra elements
+- text, watermark, stylization, motion blur
+- cropped limbs, off-center placement
+
+Goal: reconstruct a clean full-body identity anchor from reference image with predictable head position

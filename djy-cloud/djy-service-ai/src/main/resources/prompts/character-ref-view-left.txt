@@ -1,0 +1,28 @@
+LEFT VIEW — SAME CHARACTER
+
+Using the reference image, generate the SAME character.
+
+- Full-body, rotated 90° left, facing left
+
+IDENTITY LOCK:
+- Face, hair, outfit MUST be identical
+- No redesign, only rotate viewpoint
+
+CANVAS LAYOUT (STRICT — must match reference image layout):
+- Output: square 1:1 image
+- Character centered horizontally
+- Head top at ~3% from top edge
+- Feet at ~88% from top edge
+- Character occupies 85% of image height
+- Head (crown to chin) occupies 12-15% of total image height
+- Maintain SAME scale and vertical position as reference
+- Neutral background (white/gray), no ground shadow
+
+- Same lighting, same camera, same proportions
+- Photorealistic, DSLR, 50mm
+
+NO:
+- new details, style change, extra elements
+- cropped limbs, off-center placement, scale change
+
+Goal: consistent multi-view (left) with identical canvas position

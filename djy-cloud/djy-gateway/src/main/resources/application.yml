@@ -1,0 +1,36 @@
+server:
+  port: 9000
+
+spring:
+  application:
+    name: djy-gateway
+
+  cloud:
+    # ==================== Nacos 服务发现 ====================
+    nacos:
+      discovery:
+        server-addr: 127.0.0.1:8848
+
+    # ==================== 网关路由配置 ====================
+    gateway:
+      # 全局跨域
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOriginPatterns: "*"
+            allowedMethods: "*"
+            allowedHeaders: "*"
+            allowCredentials: true
+
+      routes:
+        # ---------- AI 服务（按输出类型划分） ----------
+        - id: djy-service-ai
+          uri: lb://djy-service-ai
+          predicates:
+            - Path=/api/text/**,/api/image/**,/api/video/**
+
+        # ---------- 联调测试服务 ----------
+        - id: djy-test
+          uri: lb://djy-test
+          predicates:
+            - Path=/api/test/**
